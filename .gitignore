@@ -8,7 +8,7 @@ node_modules/
 dist/
 web-build/
 *.app/
-.tar.gz
+*.tar.gz
 
 # Native
 *.orig.*
@@ -35,3 +35,6 @@ yarn-error.*
 
 # typescript
 *.tsbuildinfo
+
+#Whisper model (all bin files)
+*.bin

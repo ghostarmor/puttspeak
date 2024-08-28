@@ -4,7 +4,6 @@ import RNFS from 'react-native-fs';
 import { FFmpegKit } from 'ffmpeg-kit-react-native';
 import { Platform } from 'react-native';
 import { initWhisper } from 'whisper.rn';
-import * as Permissions from 'expo-permissions';
 
 export const SpeechToTextContext = createContext();
 

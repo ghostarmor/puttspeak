@@ -1,31 +1,40 @@
 import React, { useContext } from 'react';
-import { StyleSheet, Text, View, Button } from 'react-native';
-import SpeechToTextProvider, { SpeechToTextContext } from './SpeechToTextProvider';
-
-const RecordingScreen = () => {
-  const { startRecording, stopRecording, recognizedText, isRecording } = useContext(SpeechToTextContext);
-
-  return (
-    <View style={styles.container}>
-      <View style={styles.buttonContainer}>
-        <Button
-          title={isRecording ? "Stop Recording" : "Start Recording"}
-          onPress={isRecording ? stopRecording : startRecording}
-          color={isRecording ? "#d9534f" : "#5cb85c"}
-        />
-      </View>
-      <View style={styles.transcriptionContainer}>
-        <Text style={styles.transcriptionText}>{recognizedText || "Transcription will appear here..."}</Text>
-      </View>
-    </View>
-  );
-};
+import { StyleSheet, View, TouchableOpacity, Text } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
+import { SpeechToTextProvider, SpeechToTextContext } from './SpeechToTextProvider';
 
 const App = () => {
   return (
     <SpeechToTextProvider>
       <RecordingScreen />
     </SpeechToTextProvider>
+  );
+};
+
+const RecordingScreen = () => {
+  const { startRecording, stopRecording, recognizedText, isRecording, isTranscribing } = useContext(SpeechToTextContext);
+
+  return (
+    <View style={styles.container}>
+      <TouchableOpacity
+        style={[
+          styles.micButton,
+          isRecording && styles.micButtonActive, // Change style when recording
+        ]}
+        onPressIn={startRecording}
+        onPressOut={stopRecording}
+        disabled={isTranscribing}
+      >
+        <MaterialIcons
+          name="mic"
+          size={48}
+          color={isRecording ? "#ff0000" : "#fff"} // Change icon color when recording
+        />
+      </TouchableOpacity>
+      <View style={styles.textContainer}>
+        <Text style={styles.recognizedText}>{recognizedText || 'Press and hold to talk'}</Text>
+      </View>
+    </View>
   );
 };
 
@@ -36,22 +45,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#f5f5f5',
   },
-  buttonContainer: {
-    marginBottom: 20,
+  micButton: {
+    backgroundColor: '#1e90ff',
+    borderRadius: 50,
+    padding: 20,
+    elevation: 5,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  transcriptionContainer: {
+  micButtonActive: {
+    backgroundColor: '#ffcccc', // Change background color when recording
+  },
+  textContainer: {
+    marginTop: 20,
     paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 10,
-    backgroundColor: '#fff',
-    width: '80%',
   },
-  transcriptionText: {
-    fontSize: 16,
-    color: '#333',
+  recognizedText: {
+    fontSize: 18,
     textAlign: 'center',
+    color: '#333',
   },
 });
 

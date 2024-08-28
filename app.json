@@ -13,14 +13,20 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.aryanshah.PuttSpeak"
+      "bundleIdentifier": "com.aryanshah.PuttSpeak",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "This app requires microphone access in order to transcribe speech"
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.aryanshah.PuttSpeak"
+      "package": "com.aryanshah.PuttSpeak",
+      "permissions": [
+        "RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"

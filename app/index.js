@@ -1,24 +1,33 @@
-import React, { useContext, useRef, useEffect, useState } from 'react';
-import { StyleSheet, View, TouchableOpacity, Text, Animated, Easing } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
-import stringSimilarity from 'string-similarity';
-import SpeechToTextProvider, { SpeechToTextContext } from '../components/SpeechToTextProvider';
+import React, { useContext, useRef, useEffect, useState } from "react";
+import {
+  StyleSheet,
+  View,
+  TouchableOpacity,
+  Text,
+  Animated,
+  Easing,
+} from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
+import stringSimilarity from "string-similarity";
+import SpeechToTextProvider, {
+  SpeechToTextContext,
+} from "../components/SpeechToTextProvider";
 
 export default function IndexWrapper() {
   const [scorecard, setScorecard] = useState(new Map());
-  const [players, setPlayers] = useState(['Aryan', 'Emily', 'John']); // Initial players
+  const [players, setPlayers] = useState(["Aryan", "Emily", "John"]); // Initial players
 
   const numberWordsToDigits = {
-    'one': 1,
-    'two': 2,
-    'three': 3,
-    'four': 4,
-    'five': 5,
-    'six': 6,
-    'seven': 7,
-    'eight': 8,
-    'nine': 9,
-    'ten': 10,
+    one: 1,
+    two: 2,
+    three: 3,
+    four: 4,
+    five: 5,
+    six: 6,
+    seven: 7,
+    eight: 8,
+    nine: 9,
+    ten: 10,
   };
 
   const normalizeName = (name) => {
@@ -29,33 +38,52 @@ export default function IndexWrapper() {
     name = normalizeName(name);
     const normalizedNames = existingNames.map(normalizeName);
     const matches = stringSimilarity.findBestMatch(name, normalizedNames);
-    if (matches.bestMatch.rating >= 0.4) {  // Lowered the threshold for better matching
+    if (matches.bestMatch.rating >= 0.2) {
+      // Lowered the threshold for better matching
       return existingNames[matches.bestMatchIndex]; // Return the original (non-normalized) closest match
     }
     return null; // If no close match, return null
   };
 
-  const updateScorecard = (recognizedText) => {
-    // Regular expression to extract name, score (number or word), and optional hole (number or word)
-    const regex = /(\w+)\s+scored\s+a\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)(?:\s+on\s+hole\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten))?/i;
-    const match = recognizedText.match(regex);
+  const parseInput = (recognizedText) => {
+    // Regular expression to capture different formats and multiple player-score pairs
+    const regex =
+      /(\w+)\s*(scored\s*(a|an)?\s*)?(\d+|one|two|three|four|five|six|seven|eight|nine|ten)?\s*(on\s*hole\s*(\d+|one|two|three|four|five|six|seven|eight|nine|ten))?/gi;
+    let match;
+    const commands = [];
 
-    if (match) {
-      let name = match[1]; // Player's name
-      let score = match[2]; // Score for the hole
-      let hole = match[3]; // Hole number (optional)
+    while ((match = regex.exec(recognizedText)) !== null) {
+      const rawName = match[1]; // Player's name
+      let score = match[4]; // Score for the hole
+      let hole = match[6]; // Hole number (optional)
 
       // Convert spelled-out numbers to digits if necessary
-      score = isNaN(score) ? numberWordsToDigits[score.toLowerCase()] : parseInt(score);
-      hole = hole ? (isNaN(hole) ? numberWordsToDigits[hole.toLowerCase()] - 1 : parseInt(hole) - 1) : null; // Convert hole to 0-based index
+      score = isNaN(score)
+        ? numberWordsToDigits[score?.toLowerCase()]
+        : parseInt(score);
+      hole = hole
+        ? isNaN(hole)
+          ? numberWordsToDigits[hole.toLowerCase()] - 1
+          : parseInt(hole) - 1
+        : null; // Convert hole to 0-based index
 
-      // Find the closest match to the recognized name in the list of declared players
-      name = findClosestMatch(name, players);
+      commands.push({ name: rawName, score, hole });
+    }
 
-      if (name) {
-        setScorecard((prevScorecard) => {
-          const updatedScorecard = new Map(prevScorecard);
+    return commands;
+  };
 
+  const updateScorecard = (recognizedText) => {
+    const commands = parseInput(recognizedText);
+
+    setScorecard((prevScorecard) => {
+      const updatedScorecard = new Map(prevScorecard);
+
+      commands.forEach(({ name, score, hole }) => {
+        // Find the closest match to the recognized name in the list of declared players
+        name = findClosestMatch(name, players);
+
+        if (name) {
           // Get the player's current scores or initialize an empty array
           const playerScores = updatedScorecard.get(name) || [];
 
@@ -69,18 +97,16 @@ export default function IndexWrapper() {
 
           // Update the scorecard with the player's scores
           updatedScorecard.set(name, playerScores);
+        } else {
+          console.log(`No matching player found for name: ${name}`);
+        }
+      });
 
-          // Log the updated scorecard to the console
-          console.log("Updated Scorecard:", updatedScorecard);
+      // Log the updated scorecard to the console
+      console.log("Updated Scorecard:", updatedScorecard);
 
-          return updatedScorecard;
-        });
-      } else {
-        console.log(`No matching player found for name: ${match[1]}`);
-      }
-    } else {
-      console.log("Unrecognized command:", recognizedText);
-    }
+      return updatedScorecard;
+    });
   };
 
   return (
@@ -91,7 +117,13 @@ export default function IndexWrapper() {
 }
 
 function RecordingScreen({ onRecognizedText }) {
-  const { startRecording, stopRecording, recognizedText, isRecording, isTranscribing } = useContext(SpeechToTextContext);
+  const {
+    startRecording,
+    stopRecording,
+    recognizedText,
+    isRecording,
+    isTranscribing,
+  } = useContext(SpeechToTextContext);
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -137,10 +169,7 @@ function RecordingScreen({ onRecognizedText }) {
           ]}
         />
         <TouchableOpacity
-          style={[
-            styles.micButton,
-            isRecording && styles.micButtonActive,
-          ]}
+          style={[styles.micButton, isRecording && styles.micButtonActive]}
           onPressIn={startRecording}
           onPressOut={stopRecording}
           disabled={isTranscribing}
@@ -153,7 +182,9 @@ function RecordingScreen({ onRecognizedText }) {
         </TouchableOpacity>
       </View>
       <View style={styles.textContainer}>
-        <Text style={styles.recognizedText}>{recognizedText || 'Press and hold to talk'}</Text>
+        <Text style={styles.recognizedText}>
+          {recognizedText || "Press and hold to talk"}
+        </Text>
       </View>
     </View>
   );
@@ -162,31 +193,31 @@ function RecordingScreen({ onRecognizedText }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f5f5f5",
   },
   visualizerContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   micButton: {
-    backgroundColor: '#1e90ff',
+    backgroundColor: "#1e90ff",
     borderRadius: 50,
     padding: 20,
     elevation: 5,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   micButtonActive: {
-    backgroundColor: '#ffcccc',
+    backgroundColor: "#ffcccc",
   },
   visualizer: {
-    position: 'absolute',
+    position: "absolute",
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#ffcccc',
+    backgroundColor: "#ffcccc",
   },
   textContainer: {
     marginTop: 20,
@@ -194,7 +225,7 @@ const styles = StyleSheet.create({
   },
   recognizedText: {
     fontSize: 18,
-    textAlign: 'center',
-    color: '#333',
+    textAlign: "center",
+    color: "#333",
   },
 });

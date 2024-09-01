@@ -6,16 +6,18 @@ import {
   Text,
   Animated,
   Easing,
+  ScrollView,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import stringSimilarity from "string-similarity";
 import SpeechToTextProvider, {
   SpeechToTextContext,
 } from "../components/SpeechToTextProvider";
+import Scorecard from "../components/Scorecard";
 
 export default function IndexWrapper() {
-  const [scorecard, setScorecard] = useState(new Map());
-  const [players, setPlayers] = useState(["Aryan", "Emily", "John"]); // Initial players
+  const [players, setPlayers] = useState(["Jake", "Liam", "Ryan"]);
+  const totalHoles = 18;
 
   const numberWordsToDigits = {
     one: 1,
@@ -30,34 +32,29 @@ export default function IndexWrapper() {
     ten: 10,
   };
 
-  const normalizeName = (name) => {
-    return name.trim().toLowerCase();
-  };
+  const normalizeName = (name) => name.trim().toLowerCase();
 
   const findClosestMatch = (name, existingNames) => {
     name = normalizeName(name);
     const normalizedNames = existingNames.map(normalizeName);
     const matches = stringSimilarity.findBestMatch(name, normalizedNames);
     if (matches.bestMatch.rating >= 0.2) {
-      // Lowered the threshold for better matching
-      return existingNames[matches.bestMatchIndex]; // Return the original (non-normalized) closest match
+      return existingNames[matches.bestMatchIndex];
     }
-    return null; // If no close match, return null
+    return null;
   };
 
   const parseInput = (recognizedText) => {
-    // Regular expression to capture different formats and multiple player-score pairs
     const regex =
       /(\w+)\s*(scored\s*(a|an)?\s*)?(\d+|one|two|three|four|five|six|seven|eight|nine|ten)?\s*(on\s*hole\s*(\d+|one|two|three|four|five|six|seven|eight|nine|ten))?/gi;
     let match;
     const commands = [];
 
     while ((match = regex.exec(recognizedText)) !== null) {
-      const rawName = match[1]; // Player's name
-      let score = match[4]; // Score for the hole
-      let hole = match[6]; // Hole number (optional)
+      const rawName = match[1];
+      let score = match[4];
+      let hole = match[6];
 
-      // Convert spelled-out numbers to digits if necessary
       score = isNaN(score)
         ? numberWordsToDigits[score?.toLowerCase()]
         : parseInt(score);
@@ -65,7 +62,7 @@ export default function IndexWrapper() {
         ? isNaN(hole)
           ? numberWordsToDigits[hole.toLowerCase()] - 1
           : parseInt(hole) - 1
-        : null; // Convert hole to 0-based index
+        : null;
 
       commands.push({ name: rawName, score, hole });
     }
@@ -73,45 +70,50 @@ export default function IndexWrapper() {
     return commands;
   };
 
+  const [scores, setScores] = useState(
+    players.reduce((acc, player) => {
+      acc[player] = Array(totalHoles).fill("");
+      return acc;
+    }, {})
+  );
+
   const updateScorecard = (recognizedText) => {
     const commands = parseInput(recognizedText);
 
-    setScorecard((prevScorecard) => {
-      const updatedScorecard = new Map(prevScorecard);
+    setScores((prevScores) => {
+      const updatedScores = { ...prevScores };
 
       commands.forEach(({ name, score, hole }) => {
-        // Find the closest match to the recognized name in the list of declared players
         name = findClosestMatch(name, players);
 
         if (name) {
-          // Get the player's current scores or initialize an empty array
-          const playerScores = updatedScorecard.get(name) || [];
-
-          // If the hole is specified, update that specific hole
+          const playerScores = updatedScores[name] || Array(totalHoles).fill("");
           if (hole !== null) {
-            playerScores[hole] = score;
+            playerScores[hole] = score.toString();
           } else {
-            // If the hole is not specified, add the score to the next available hole
-            playerScores.push(score);
+            const nextHole = playerScores.indexOf("");
+            if (nextHole !== -1) {
+              playerScores[nextHole] = score.toString();
+            }
           }
 
-          // Update the scorecard with the player's scores
-          updatedScorecard.set(name, playerScores);
+          updatedScores[name] = playerScores;
         } else {
           console.log(`No matching player found for name: ${name}`);
         }
       });
 
-      // Log the updated scorecard to the console
-      console.log("Updated Scorecard:", updatedScorecard);
-
-      return updatedScorecard;
+      console.log("Updated Scores:", updatedScores);
+      return updatedScores;
     });
   };
 
   return (
     <SpeechToTextProvider>
-      <RecordingScreen onRecognizedText={updateScorecard} />
+      <ScrollView contentContainerStyle={styles.container}>
+        <RecordingScreen onRecognizedText={updateScorecard} />
+        <Scorecard players={players} totalHoles={totalHoles} scores={scores} onScoreUpdate={updateScorecard} />
+      </ScrollView>
     </SpeechToTextProvider>
   );
 }
@@ -149,7 +151,6 @@ function RecordingScreen({ onRecognizedText }) {
     }
   }, [isRecording]);
 
-  // Call onRecognizedText whenever recognizedText updates
   useEffect(() => {
     if (recognizedText) {
       onRecognizedText(recognizedText);
@@ -157,7 +158,7 @@ function RecordingScreen({ onRecognizedText }) {
   }, [recognizedText]);
 
   return (
-    <View style={styles.container}>
+    <View style={styles.recorderContainer}>
       <View style={styles.visualizerContainer}>
         <Animated.View
           style={[
@@ -192,10 +193,12 @@ function RecordingScreen({ onRecognizedText }) {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#f5f5f5",
+    paddingVertical: 10,
+    paddingHorizontal: 5,
+    backgroundColor: '#f0f0f0',
+  },
+  recorderContainer: {
+    marginBottom: 20,
   },
   visualizerContainer: {
     justifyContent: "center",
@@ -229,3 +232,4 @@ const styles = StyleSheet.create({
     color: "#333",
   },
 });
+
